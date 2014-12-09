@@ -129,8 +129,7 @@ def my_analyse(msg, addr,s):
     
     elif msg.startswith('request to join by'):  # request message
         send_message(s,msg_pre['w'] + my_nick,addr)
-        
-        del sent_requests[addr]
+               
         sent_welcome_msg[addr] = (time.time() ,0 , get_nick_from_welcome(msg) )
 
     else:
@@ -171,6 +170,7 @@ def send_message(s, msg, addr):
 
 # retransmission function
 def my_retransmit(s):
+    return
     global my_nick
     global msg_pre
     global goon
@@ -188,33 +188,31 @@ def my_retransmit(s):
             count = status[1] + 1
             if (count > general_tries):
                 del sent_requests[addr]
-            else
+            else:
                 send_message(s, msg_pre['r'] + my_nick, addr)
                 sent_requests[addr] = (t,count)
 
 
         ###### check for welcome timeouts
-        
-        del_addr=[]
+
         t=time.time()
         for addr,status in sent_welcome_msg.items():
             count = status[1] + 1
             if (count > general_tries):
                 del sent_welcome_msg[addr]
-            else
+            else:
                 send_message(s, msg_pre['w'] + my_nick, addr)
                 sent_welcome_msg[addr] = (t,count,my_nick)
-        
 
-        ###### check for chat timeouts
-
-        del_addr=[]
         t=time.time()
         for addr,status in sent_chat_msg.items():
-            pass # implement here
-                    
-        for addr in del_addr:
-            del sent_chat_msg[addr]
+            count = status[1] + 1
+            if (count > general_tries):
+                del sent_chat_msg[addr]
+            else:
+                send_message(s, status[3], addr)
+                sent_chat_msg[addr] = (t,count,my_nick)
+    
 
         ##### check again after 1s
         time.sleep(1)
@@ -235,8 +233,12 @@ def my_chat():
     if to_nick=='All':
         for nick, addr in nick2host.items():
             send_message(sock,message,nick2host[nick])
+            # key: addr, value: (time, num_retry, to_nick, msg) 
+            sent_chat_msg[addr] = (time.time(), 0 , nick, message)
     else:
         send_message(sock,message,nick2host[to_nick])
+
+    sent_chat_msg[addr] = (time.time(), 0 , nick, message)
 
 def my_quit():
     global goon
