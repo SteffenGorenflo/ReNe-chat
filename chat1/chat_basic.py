@@ -4,7 +4,7 @@ from threading import Thread
 
 # global data
 goon=True               # Threads stop if goon==0
-debug=False             # falg for enabling debug information
+debug=False             # flag for enabling debug information
 debug=True
 
 # local data
@@ -58,7 +58,7 @@ def delete_from_buddy_list(nick, addr):
     pass # implement here
 
 # receive function
-def my_receive(s):      # s i an open UDP socket
+def my_receive(s):      # s is an open UDP socket
     global debug
     global goon, my_nick
     # main loop: repeat until program stops (goon==false)
@@ -195,7 +195,7 @@ def my_quit():
     goon=0
     
 
-def my_input():
+
     global action
     time.sleep(1)
     action=input('Enter Action (<S>, <L>, <C>, <Q>)\n')
@@ -211,13 +211,19 @@ my_port=int(eval(input('Enter port number:')))
 print('Opening socket on port '+str(my_port))
 
 pass # implement: open socket
+sock=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 pass # implement: start receive and retransmit threads
-zzz=Thread(target=yyy,args=(aaa,))
+zzz=Thread(target=my_receive,args=(my_port,))
 zzz.start()
+
+xxx=Thread(target=my_retransmit,args=(my_port,))
+xxx.start()
 
 # main loop waiting for input
 while goon:
+    action=input('Enter Action (<S>, <L>, <C>, <Q>)\n')
+    my_input=actions[action]()
     t_in=Thread(target=my_input)
     t_in.start()
     t_in.join()
