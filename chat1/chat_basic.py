@@ -4,8 +4,8 @@ from threading import Thread
 
 # global data
 goon=True               # Threads stop if goon==0
-debug=False             # flag for enabling debug information
-debug=True
+debug=False           # flag for enabling debug information
+
 
 # local data
 my_nick=''              # own nick name
@@ -36,6 +36,8 @@ max_retries_welcome=3
 retry_timer_chat=3      # chats
 max_retries_chat=3
 
+sock=''
+
 # message prefixes
 # key: {'w','r','ack w','ack c'}, value: message prefix
 msg_pre=dict([('w',"welcome to the chat, I'm "),('r',"request to join by "),('ack w','ACK: welcome'),('ack c','ACK: chat')])
@@ -49,13 +51,29 @@ def get_nick_from_welcome(msg):
 def add_to_buddy_list(nick, addr, t):
     global nick2host, host2nick, last_buddy_update
 
-    pass # implement here
+
+    nick2host[nick] =addr
+    host2nick[addr] =nick 
+    
+    #TODO timestamp, maybe:
+    last_buddy_update[nick] =t
+
+
+    
 
 # function deletes a nick/addr pair from buddy lists
 def delete_from_buddy_list(nick, addr):
     global nick2host, host2nick, last_buddy_update
 
-    pass # implement here
+
+    del nick2host[nick]
+    del host2nick[addr]
+
+    #TODO timestamp, maybe:
+    del last_buddy_update[nick]
+
+
+    
 
 # receive function
 def my_receive(s):      # s is an open UDP socket
@@ -65,34 +83,53 @@ def my_receive(s):      # s is an open UDP socket
     while goon:
         # read messages and call my_analyse
         # if debug: give also error messages for closed ports
+        try:
+            data, addr = s.recvfrom(1024) # buffer size is 1024 bytes
+            my_analyse(data.decode('utf-8'), addr,s)
 
-        pass # implement here
+            pass
+        except socket.error as serr:
+            if debug:
+                pass
+                #print(time.time())
+                #print("not reachable: " + str(s) + " because of: " + str(serr))
+        else:
+            pass
+        finally:
+            pass
+        
 
 # analyse function
-def my_analyse(msg, addr):
+def my_analyse(msg, addr,s):
     global debug
     global sent_welcome_msg
+    global sent_chat_msg
+    global msg_pre
+    global my_nick
 
     if debug:
-        print(time.time())
         print(': from '+addr[0]+'/'+str(addr[1])+':'+msg)
 
 
     # analyse the message
     if msg.startswith(msg_pre['w']):    # welcome message
-        pass # implement here
+        add_to_buddy_list(get_nick_from_welcome(msg), addr, time.time())
+        send_message(s,msg_pre['ack w'],addr) 
 
     elif msg.startswith('ACK: welcome'):    # ACK to welcome message
-        pass # implement here
+        del sent_welcome_msg[addr]
 
     elif msg.startswith('From'):    # chat message
-        pass # implement here
+        print(str(msg))
+        send_message(s,msg_pre['ack c'],addr)
 
     elif msg.startswith('ACK: chat'):   # ACK to chat message
-        pass # implement here
+        del sent_chat_msg[addr]
     
     elif msg.startswith('request to join by'):  # request message
-        pass # implement here
+        send_message(s,msg_pre['w'] + my_nick,addr)
+        # key: addr, value: (time, tries, nick) 
+        sent_welcome_msg[addr] = (time.time() ,0 , get_nick_from_welcome(msg) )
 
     else:
         print('received a message with unknown format')
@@ -100,11 +137,18 @@ def my_analyse(msg, addr):
 
 # scanning ports
 def my_scan():
+    global sock
     global my_nick, my_host, my_port, host_list, port_range
     global msg_pre
+    global sent_requests
     print('Scanning ports\n')
 
-    pass # implement here
+    for ip in host_list:
+        for port in port_range:
+            send_message(sock,'request to join by '  + my_nick, (ip,port))
+            # key: addr, value: (time, tries)
+            sent_requests[] = ()
+
 
 
 def send_message(s, msg, addr):
@@ -176,31 +220,31 @@ def my_retransmit(s):
 def my_list():
     print('My buddy list:')
     for nick, addr in nick2host.items():
-        print('Nick: '+nick+' at '+addr2str(addr)+'\n')
+        print('Nick: '+nick+' at '+ str(addr)+'\n')
     
 def my_chat():
     global my_nick, sent_chat_msg, nick2host
+    global sock
     print('Enter chat message:'+'\n')
     to_nick=input('To? ')
+    message = "From " + my_nick + ": " + input('message? ')
+
     if to_nick=='All':
-        pass # implement here
-        # only continue if there are no outstanding ACKs for any chat message
+        for nick, addr in nick2host.items():
+            send_message(sock,message,nick2host[nick])
     else:
-        pass # implement here
-        # only continue if there are no outstanding ACKs for the recipient
+        send_message(sock,message,nick2host[to_nick])
 
 def my_quit():
     global goon
     print('Quitting!!!')
     goon=0
-    
-
-
+  
+def my_input():  
     global action
     time.sleep(1)
     action=input('Enter Action (<S>, <L>, <C>, <Q>)\n')
     actions[action]()
-
 
 # main program
 actions = {'S' : my_scan, 'L' : my_list,'C' : my_chat,'Q' : my_quit }
@@ -210,23 +254,26 @@ print('Starting the Chat Client')
 my_port=int(eval(input('Enter port number:')))
 print('Opening socket on port '+str(my_port))
 
-pass # implement: open socket
 sock=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((my_host,my_port))
+sock.settimeout(1)
 
 pass # implement: start receive and retransmit threads
-zzz=Thread(target=my_receive,args=(my_port,))
+zzz=Thread(target=my_receive,args=(sock,))
 zzz.start()
 
-xxx=Thread(target=my_retransmit,args=(my_port,))
+xxx=Thread(target=my_retransmit,args=(sock,))
 xxx.start()
 
 # main loop waiting for input
 while goon:
-    action=input('Enter Action (<S>, <L>, <C>, <Q>)\n')
-    my_input=actions[action]()
     t_in=Thread(target=my_input)
     t_in.start()
     t_in.join()
+
+
+zzz.join()
+xxx.join()
 
 
             

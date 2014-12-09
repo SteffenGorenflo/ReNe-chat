@@ -15,6 +15,7 @@ def ping(host, port):
 	try:
 		data, addr = sock.recvfrom(250)
 		print("received: " + str(data))
+		print(str(addr))
 		return port
 	except socket.error as serr:
 		print("not reachable: " + str(port) + " because of " + str(serr))
