@@ -35,6 +35,7 @@ retry_timer_welcome=3   # welcomes
 max_retries_welcome=3
 retry_timer_chat=3      # chats
 max_retries_chat=3
+general_tries=3
 
 sock=''
 
@@ -128,7 +129,8 @@ def my_analyse(msg, addr,s):
     
     elif msg.startswith('request to join by'):  # request message
         send_message(s,msg_pre['w'] + my_nick,addr)
-        # key: addr, value: (time, tries, nick) 
+        
+        del sent_requests[addr]
         sent_welcome_msg[addr] = (time.time() ,0 , get_nick_from_welcome(msg) )
 
     else:
@@ -147,7 +149,7 @@ def my_scan():
         for port in port_range:
             send_message(sock,'request to join by '  + my_nick, (ip,port))
             # key: addr, value: (time, tries)
-            sent_requests[] = ()
+            sent_requests[(ip,port)] = (time.time(),0)
 
 
 
@@ -181,16 +183,14 @@ def my_retransmit(s):
 
         ###### check for request timeouts
 
-        # to delete requests, store the "addr" in del_addr
-        del_addr=[]
-
         t=time.time()   # get the current time
         for addr,status in sent_requests.items():
-            pass # implement here
-
-        # delete requests with addr in del_addr
-        for addr in del_addr:
-            del sent_requests[addr]
+            count = status[1] + 1
+            if (count > general_tries):
+                del sent_requests[addr]
+            else
+                send_message(s, msg_pre['r'] + my_nick, addr)
+                sent_requests[addr] = (t,count)
 
 
         ###### check for welcome timeouts
@@ -198,10 +198,13 @@ def my_retransmit(s):
         del_addr=[]
         t=time.time()
         for addr,status in sent_welcome_msg.items():
-            pass # implement here
+            count = status[1] + 1
+            if (count > general_tries):
+                del sent_welcome_msg[addr]
+            else
+                send_message(s, msg_pre['w'] + my_nick, addr)
+                sent_welcome_msg[addr] = (t,count,my_nick)
         
-        for addr in del_addr:
-            del sent_welcome_msg[addr]
 
         ###### check for chat timeouts
 
