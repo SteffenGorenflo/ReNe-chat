@@ -187,6 +187,7 @@ def my_retransmit(s):
         for addr,status in sent_requests.items():
             count = status[1] + 1
             if (count > general_tries):
+                print ("timeout of request: " + str(sent_requests[addr]))
                 del sent_requests[addr]
             else:
                 send_message(s, msg_pre['r'] + my_nick, addr)
@@ -199,23 +200,28 @@ def my_retransmit(s):
         for addr,status in sent_welcome_msg.items():
             count = status[1] + 1
             if (count > general_tries):
+                print ("timeout of welcome message: " + str(sent_welcome_msg[addr]))
                 del sent_welcome_msg[addr]
             else:
                 send_message(s, msg_pre['w'] + my_nick, addr)
                 sent_welcome_msg[addr] = (t,count,my_nick)
 
+
+        ###### check for chat messages timeouts
+
         t=time.time()
         for addr,status in sent_chat_msg.items():
             count = status[1] + 1
             if (count > general_tries):
+                print ("timeout of chat message: " + str(sent_chat_msg[addr]))
                 del sent_chat_msg[addr]
             else:
                 send_message(s, status[3], addr)
                 sent_chat_msg[addr] = (t,count,my_nick)
     
 
-        ##### check again after 1s
-        time.sleep(1)
+        ##### check again after 3s
+        time.sleep(3)
 
 
 def my_list():
@@ -235,10 +241,12 @@ def my_chat():
             send_message(sock,message,nick2host[nick])
             # key: addr, value: (time, num_retry, to_nick, msg) 
             sent_chat_msg[addr] = (time.time(), 0 , nick, message)
+
     else:
         send_message(sock,message,nick2host[to_nick])
+        sent_chat_msg[nick2host[to_nick]] = (time.time(), 0 , to_nick, message)
 
-    sent_chat_msg[addr] = (time.time(), 0 , nick, message)
+    
 
 def my_quit():
     global goon
