@@ -12,12 +12,14 @@ from tcpip_packets import *
 
 # TCP Verbindung
 class TCP_Connection(object):
-    def __init__(self,srcp,dstp):
+    def __init__(self,srcp,dstp,dstaddr):
+        self.dst_addr=dstaddr   # Ziel addresse (ip,port)
         self.dstp=dstp          # Ziel Port
         self.srcp=srcp          # Source Port
         self.mss=1000           # Maximum Segment Size
         self.rto=1              # Retransmission timeout (konstant)
         self.state='CLOSED'     # Zustand
+        self.maxSendTries=5     # 
 
         self.tx_next=0          # next segment to transmit
         self.tx_acked=-1        # größtes empfangenes ACK
@@ -44,7 +46,9 @@ class TCP_Connection(object):
         print(' tx_acked:',self.tx_acked,', cwnd:',self.cwnd,' flight:',len(self.segments_in_flight))
 
    
-    # send request, get ACK, retrieve data
+    # send request, get ACK, retrieve data !!!!!!!!!!!!!!!!!!!!!!!!!!
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     def request_data(self,n):
         self.num_segments=n
         if not self.connect():
@@ -63,8 +67,21 @@ class TCP_Connection(object):
 
     # establish TCP connection
     def connect(self):
-        pass    # TODO: Schritt 1
-
+        maxSendTries = 5;
+        k=0
+        while k<maxSendTries:
+            try:
+                debugmsg('Sending syn') #TODO
+                s.sendto(str(tcpo.get_info).encode('utf-8'), self.dst_addr)
+            except socket.error as e:
+                debugmsg('Could not send syn: ' + str(e))
+                k+=1
+            if k==maxSendTries:
+                print('Error: could not sent request message, maximum number of tries exceeded')
+                return False
+            else:
+                # 
+                return True
 
     # send the request containing the number of segments
     def send_request(self):
@@ -167,15 +184,22 @@ def my_time():
 
 # the client, started as a thread
 def my_file_client():
-    conn=TCP_Connection(my_v_port,dst_v_port)
+    conn=TCP_Connection(my_v_port,dst_v_port,dest_addr)
     if conn.request_data(num_segments):
         print('Retrieved file and close connection')
     else:
         print('Failed')
     goon=False
 
+def debugmsg(msg):
+    if (debug):
+        print('[debug_client]: ' + msg)
+
+
+
 # global data
 goon=True               # Threads stop if goon==0
+debug=True
 
 # real and virtual addresses and port
 # TODO: Adressen bei Bedarf richtig konfigurieren
@@ -187,6 +211,7 @@ my_v_ip='141.37.168.2'
 dst_v_ip='141.37.168.1'
 my_v_port=1000
 dst_v_port=100
+dest_addr=(dst_ip,dst_port)
 
 # number of segments requested
 # TODO: für Schritt 4 anpassen
@@ -195,6 +220,7 @@ num_segments=1
 # open a udp socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind((my_ip,my_port))
+s.settimeout(5)
 
 # generic IP object for generating and extracting IP headers
 ipo=IP(my_v_ip,dst_v_ip)

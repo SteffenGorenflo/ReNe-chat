@@ -46,23 +46,40 @@ class TCP_Connection(object):
     def listen(self):
         print('Listening ....')
         if not self.wait_syn():
+            debugmsg('abort wait_syn')
             return False
         print('Connection established, waiting for request ...')
         if not self.wait_request():
+            debugmsg('abort wait_request')
             return False
         print('Request for',self.num_segments,' received')
         print('Sending data...')
         if not self.send_data():
+            debugmsg('abort send_data')
             return False
         print('Data transfered, closing connection ...')
         if not self.close():
+            debugmsg('abort close')
             return False
         print('Connection closed')
         return True
 
     # function to establish connection, exit after entering ESTABLISHED state
     def wait_syn(self):
-        pass    # TODO: Schritt 1        
+        while goon:
+        # read messages and call my_analyse
+            try:
+                debugmsg('receive from socket')
+                data, addr = s.recvfrom(1024) # segment size (= buffer size??)
+                debugmsg('received data: ' + str(data.decode('utf-8')))
+                print('Extracted data:' + str(self.segment.get_info(data)))
+
+            except socket.error as serr:
+                debugmsg('error while listening on socket: ' + str(serr))
+
+
+        self.state = 'ESTABLISHED'
+        return True     
 
     # receive and acknowledge a request 
     def wait_request(self):
@@ -79,7 +96,7 @@ class TCP_Connection(object):
     # generate a packet (header#payload),
     # payload should be the repeated segment number
     def gen_data(self):
-        pass:   # TODO: Schritt 2
+        pass   # TODO: Schritt 2
         
     # send an ack: recommended to send all ACK using this function
     def send_ack(self):
@@ -109,6 +126,7 @@ class TCP_Connection(object):
     def send_packet(self,packet):
         self.segments_in_flight.append((self.segment.get_info(packet),packet))
         send_segment(packet,self.segment.get_info(packet))
+
 
 
 # function to receive packet from UDP socket, print the information and extract TCP packet
@@ -176,9 +194,15 @@ def my_file_server():
     ok=conn.listen()
     goon=False
 
+def debugmsg(msg):
+    if (debug):
+        print('[debug_server]: ' + msg)
+
+
 
 # global data
 goon=True               # Threads stop if goon==0
+debug=True
 
 # real and virtual addresses and ports
 # TODO: Adressen bei Bedarf richtig konfigurieren, insbesondere bei Aufgabe 5 und 6
@@ -196,6 +220,7 @@ dst_v_port=0
 # open a udp socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind((my_ip,my_port))
+s.settimeout(5)
 
 # generic IP object for generating and extracting IP headers
 ipo=IP(my_v_ip,dst_v_ip)
