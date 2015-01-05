@@ -73,6 +73,7 @@ class TCP_Connection(object):
                 data, addr = s.recvfrom(1024) # segment size (= buffer size??)
                 debugmsg('received data: ' + str(data.decode('utf-8')))
                 print('Extracted data:' + str(self.segment.get_info(data)))
+                print('more: ' + str(self.segment.unpack(data).list))
 
             except socket.error as serr:
                 debugmsg('error while listening on socket: ' + str(serr))
