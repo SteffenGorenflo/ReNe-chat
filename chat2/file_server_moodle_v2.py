@@ -12,6 +12,7 @@ from tcpip_packets import *
 # TCP Verbindung
 class TCP_Connection(object):
     def __init__(self,srcp,dstp):
+        self.dst_addr=dstaddr   # Ziel addresse (ip,port)
         self.dstp=dstp          # Ziel Port
         self.srcp=srcp          # Source Port
         self.mss=1000           # Maximum Segment Size
@@ -67,20 +68,22 @@ class TCP_Connection(object):
     # function to establish connection, exit after entering ESTABLISHED state
     def wait_syn(self):
         while goon:
-        # read messages and call my_analyse
             try:
                 debugmsg('receive from socket')
                 data, addr = s.recvfrom(1024) # segment size (= buffer size??)
-                debugmsg('received data: ' + str(data.decode('utf-8')))
-                print('Extracted data:' + str(self.segment.get_info(data)))
-                print('more: ' + str(self.segment.unpack(data).list))
+                
+                debugmsg('received data: ' + str(self.segment.get_info(data)))
+
+                # if syn send syn+ack (bis jetz wird nur generischer TCP Header geschickt)
+
+                s.sendto(self.segment.pack(),self.dst_addr)
+                debugmsg('connection established')
+                self.state = 'ESTABLISHED'
+                return True
 
             except socket.error as serr:
                 debugmsg('error while listening on socket: ' + str(serr))
-
-
-        self.state = 'ESTABLISHED'
-        return True     
+                debugmsg('still listening...')
 
     # receive and acknowledge a request 
     def wait_request(self):
@@ -172,16 +175,16 @@ def send_segment(packet,info):
 
 # function to print information for a packet
 def print_packet(s,pid,info):
-    print(s+' '+my_time()+' ID:'+str(ipo.id),end='')
-    print(' SEQ:'+str(info[0])+'-'+str(info[0]+info[4]/1000),end='')
-    print(' Payload: '+str(info[4]),end='')
-    print(' ACK:'+str(info[1])+' ',end='')
+    print(s+' '+my_time()+' ID:'+str(ipo.id))
+    print(' SEQ:'+str(info[0])+'-'+str(info[0]+info[4]/1000))
+    print(' Payload: '+str(info[4]))
+    print(' ACK:'+str(info[1])+' ')
     if info[2]:
-        print('S',end='')
+        print('S')
     if info[3]:
-        print('A',end='')
+        print('A')
     if info[5]:
-        print('F',end='')
+        print('F')
     print()
         
 
@@ -216,12 +219,13 @@ dst_v_ip='141.37.168.1'
 my_v_port=100
 # sollte nach Empfang des SYN-Pakets gesetzt werden, spielt hier aber keine Rolle
 dst_v_port=0
+dstaddr=(dst_ip,dst_port)
 
 
 # open a udp socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind((my_ip,my_port))
-s.settimeout(5)
+s.settimeout(30) # set time out to 30 seconds
 
 # generic IP object for generating and extracting IP headers
 ipo=IP(my_v_ip,dst_v_ip)

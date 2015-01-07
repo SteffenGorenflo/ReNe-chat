@@ -56,6 +56,7 @@ class TCP_Connection(object):
             return False
         print('Connection established, sending request')
         if not self.send_request():
+            debugmsg('sending request failed')
             return False
         if not self.wait_ack():
             return False
@@ -67,21 +68,19 @@ class TCP_Connection(object):
 
     # establish TCP connection
     def connect(self):
-        maxSendTries = 5;
-        k=0
-        while k<maxSendTries:
-            try:
-                debugmsg('Sending syn') #TODO
-                s.sendto(str(tcpo.get_info).encode('utf-8'), self.dst_addr)
-            except socket.error as e:
-                debugmsg('Could not send syn: ' + str(e))
-                k+=1
-            if k==maxSendTries:
-                print('Error: could not sent request message, maximum number of tries exceeded')
-                return False
-            else:
-                # 
-                return True
+        try:
+            debugmsg('Sending syn')
+            synmesg = tcpo.pack()
+            s.sendto(synmesg, self.dst_addr)
+
+            debugmsg('Waiting for syn+ack') 
+            data, addr = s.recvfrom(1024)
+            debugmsg('received data: ' + str(self.segment.get_info(data)))
+        except socket.error as e:
+            debugmsg('Could established connection: ' + str(e))
+            return False
+        debugmsg('Connection established')       
+        return True
 
     # send the request containing the number of segments
     def send_request(self):
@@ -201,6 +200,7 @@ def debugmsg(msg):
 goon=True               # Threads stop if goon==0
 debug=True
 
+
 # real and virtual addresses and port
 # TODO: Adressen bei Bedarf richtig konfigurieren
 my_port=5000
@@ -220,7 +220,7 @@ num_segments=1
 # open a udp socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 s.bind((my_ip,my_port))
-s.settimeout(5)
+s.settimeout(20)
 
 # generic IP object for generating and extracting IP headers
 ipo=IP(my_v_ip,dst_v_ip)
