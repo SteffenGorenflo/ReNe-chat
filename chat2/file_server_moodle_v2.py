@@ -2,6 +2,7 @@ import socket               # Import socket module
 import select
 import sys
 import time
+import os
 import struct
 import math
 from threading import Thread
@@ -49,6 +50,7 @@ class TCP_Connection(object):
         if not self.wait_syn():
             debugmsg('abort wait_syn')
             return False
+        self.state = 'ESTABLISHED'
         print('Connection established, waiting for request ...')
         if not self.wait_request():
             debugmsg('abort wait_request')
@@ -67,50 +69,81 @@ class TCP_Connection(object):
 
     # function to establish connection, exit after entering ESTABLISHED state
     def wait_syn(self):
-        while goon:
-            try:
-                debugmsg('receive from socket')
-                data, addr = s.recvfrom(1024) # segment size (= buffer size??)
-                
-                debugmsg('received data: ' + str(self.segment.get_info(data)))
+        data = receive_segment(5);
+        packetinfo = self.segment.get_info(data)
+        debugmsg("received some data from client")
+        if not packetinfo == (0,0,1,0,0,0):
+            debugmsg("Not correct syn packet. Still waiting")
+            self.wait_syn
 
-                # if syn send syn+ack (bis jetz wird nur generischer TCP Header geschickt)
+        debugmsg("received SYN, sending SYN+ACK")
+        
+        self.rx_max += 1;
+        synack = self.segment.gen_packet(seqn=self.tx_next,syn=1,ack=1,ackn=self.rx_max+1)
 
-                s.sendto(self.segment.pack(),self.dst_addr)
-                debugmsg('connection established')
-                self.state = 'ESTABLISHED'
-                return True
+        self.send_packet(synack)
 
-            except socket.error as serr:
-                debugmsg('error while listening on socket: ' + str(serr))
-                debugmsg('still listening...')
-
+        debugmsg("waiting for ACK")
+        return self.wait_ack()
     # receive and acknowledge a request 
     def wait_request(self):
-        pass    # TODO: Schritt 2
+        data = receive_segment(5);
+        packetinfo = self.segment.get_info(data)
+        debugmsg("waiting for a request")
+        if not packetinfo == (self.rx_max + 1, self.tx_acked + 1, 0 , 0 ,4, 0):
+            self.wait_request
+
+        debugmsg("Got request")
+
+        tcpp=self.segment.unpack(data)
+        self.num_segments = struct.unpack("i",tcpp.payload)[0]
+
+        debugmsg("Send Ack")
+        self.send_ack()
+        return True
+
+
+    def wait_ack(self):
+        data = receive_segment(5);
+        packetinfo = self.segment.get_info(data)
+        self.segments_in_flight.pop(0)
+        self.tx_acked += 1
+        self.rx_max += 1
+        debugmsg("ACK recieved")
+
+        return True
 
     # send the data, main function
     def send_data(self):
-        pass    # TODO: Schritt 2+4, Aufgabe 4
+        #remove first item in list
+        self.segments_in_flight.pop(0)
+        for x in range(0, self.num_segments):
+            payload = self.gen_data()
+            self.tx_next += 1
+            packet=self.segment.gen_packet(seqn=self.tx_next,ackn=self.rx_max+1,payload=payload)
+            self.send_packet(packet)
+            self.wait_ack()
+        return True
 
     # function to execute closing procedure
     def close(self):
-        pass    # TODO: Schritt 3
+        close = self.segment.gen_packet(fin=1,seqn=self.tx_next,ackn=self.rx_max+1)
+        self.send_packet(close)
+        self.wait_ack()
+
+        return True
+
 
     # generate a packet (header#payload),
     # payload should be the repeated segment number
     def gen_data(self):
-        pass   # TODO: Schritt 2
+        return os.urandom(1000)
         
     # send an ack: recommended to send all ACK using this function
     def send_ack(self):
-        pass    # TODO: Schritt 1-3, Aufgabe 4
-
-        # this should be used to generate packets 
-        # seqn, ackn,syn, ack, payload need to be modified according to the packet to be sent
-        packet=self.segment.gen_packet(seqn,ackn,syn,fin, ack,payload)
-        # this function should be used to put them on the UDP socket
-        send_segment(packet,self.segment.get_info(packet))
+        packet=self.segment.gen_packet(seqn=self.tx_next,ackn=self.rx_max+1,ack=1)
+        self.tx_next += 1
+        self.send_packet(packet)
     
     
     # implement a function to trigger retransmits
@@ -130,6 +163,12 @@ class TCP_Connection(object):
     def send_packet(self,packet):
         self.segments_in_flight.append((self.segment.get_info(packet),packet))
         send_segment(packet,self.segment.get_info(packet))
+
+    def printself(self):
+        debugmsg("self.tx_next = " + str(self.tx_next))
+        debugmsg("self.tx_acked = " +str(self.tx_acked))
+        debugmsg("self.rx_max = " +  str(self.rx_max))  
+        debugmsg("self.tx_max = " +str(self.tx_max))
 
 
 
@@ -154,8 +193,8 @@ def receive_segment(rto):
         return
     # extract information from TCP Packet
     # packet[20:]:packet without 20 Bytes IP header
-    info=self.segment.get_info(packet[20:])
-    print_packet('IN: ',ipo.id,info)
+    #info=self.segment.get_info(packet[20:])
+    #print_packet('IN: ',ipo.id,info)
     # return TCP packet
     return packet[20:]
         
@@ -175,16 +214,16 @@ def send_segment(packet,info):
 
 # function to print information for a packet
 def print_packet(s,pid,info):
-    print(s+' '+my_time()+' ID:'+str(ipo.id))
-    print(' SEQ:'+str(info[0])+'-'+str(info[0]+info[4]/1000))
-    print(' Payload: '+str(info[4]))
-    print(' ACK:'+str(info[1])+' ')
+    print(s+' '+my_time()+' ID:'+str(ipo.id),end='')
+    print(' SEQ:'+str(info[0])+'-'+str(info[0]+info[4]/1000),end='')
+    print(' Payload: '+str(info[4]),end='')
+    print(' ACK:'+str(info[1])+' ',end='')
     if info[2]:
-        print('S')
+        print('S',end='')
     if info[3]:
-        print('A')
+        print('A',end='')
     if info[5]:
-        print('F')
+        print('F',end='')
     print()
         
 
@@ -214,8 +253,8 @@ my_port=6000
 dst_port=5000
 my_ip='127.0.0.1'
 dst_ip='127.0.0.1'
-my_v_ip='141.37.168.2'
-dst_v_ip='141.37.168.1'
+my_v_ip='141.37.168.1'
+dst_v_ip='141.37.168.2'
 my_v_port=100
 # sollte nach Empfang des SYN-Pakets gesetzt werden, spielt hier aber keine Rolle
 dst_v_port=0

@@ -155,7 +155,7 @@ class TCP(object):
         return _tcp
 
     # Paket aus wesentlichen Informationen generieren
-    def gen_packet(self,seqn,ackn,syn,fin,ack,payload):
+    def gen_packet(self,seqn=0,ackn=0,syn=0,fin=0,ack=0,payload=b''):
         self.seqn=seqn
         self.ackn=ackn
         self.syn=syn
