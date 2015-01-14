@@ -46,9 +46,7 @@ class TCP_Connection(object):
 		print(' tx_acked:',self.tx_acked,', cwnd:',self.cwnd,' flight:',len(self.segments_in_flight))
 
    
-	# send request, get ACK, retrieve data !!!!!!!!!!!!!!!!!!!!!!!!!!
-	#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	# send request, get ACK, retrieve data
 	def request_data(self,n):
 		self.num_segments=n
 		if not self.connect():
@@ -96,6 +94,7 @@ class TCP_Connection(object):
 			data = receive_segment(5)
 			packetinfo = self.segment.get_info(data)
 			debugmsg("Data received")
+			self.rx_max += 1
 
 			debugmsg("Send ACK")
 			self.send_ack()
@@ -173,8 +172,8 @@ def receive_segment(rto):
 		return
 	# extract information from TCP Packet
 	# packet[20:]:packet without 20 Bytes IP header
-	# info=self.segment.get_info(packet[20:])
-	# print_packet('IN: ',ipo.id,info)
+	info=tcpo.get_info(packet[20:])
+	print_packet('IN: ',ipo.id,info)
 	# return TCP packet
 	return packet[20:]
 
@@ -230,7 +229,7 @@ def debugmsg(msg):
 
 # global data
 goon=True               # Threads stop if goon==0
-debug=True
+debug=False
 
 
 # real and virtual addresses and port
@@ -247,7 +246,7 @@ dest_addr=(dst_ip,dst_port)
 
 # number of segments requested
 # TODO: für Schritt 4 anpassen
-num_segments=1
+num_segments=10
 
 # open a udp socket
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

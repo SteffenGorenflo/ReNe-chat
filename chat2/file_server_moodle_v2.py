@@ -55,7 +55,7 @@ class TCP_Connection(object):
         if not self.wait_request():
             debugmsg('abort wait_request')
             return False
-        print('Request for',self.num_segments,' received')
+        print('Request for',self.num_segments,' segments received')
         print('Sending data...')
         if not self.send_data():
             debugmsg('abort send_data')
@@ -94,6 +94,7 @@ class TCP_Connection(object):
             self.wait_request
 
         debugmsg("Got request")
+        self.rx_max +=1
 
         tcpp=self.segment.unpack(data)
         self.num_segments = struct.unpack("i",tcpp.payload)[0]
@@ -193,8 +194,8 @@ def receive_segment(rto):
         return
     # extract information from TCP Packet
     # packet[20:]:packet without 20 Bytes IP header
-    #info=self.segment.get_info(packet[20:])
-    #print_packet('IN: ',ipo.id,info)
+    info=tcpo.get_info(packet[20:])
+    print_packet('IN: ',ipo.id,info)
     # return TCP packet
     return packet[20:]
         
@@ -245,7 +246,7 @@ def debugmsg(msg):
 
 # global data
 goon=True               # Threads stop if goon==0
-debug=True
+debug=False
 
 # real and virtual addresses and ports
 # TODO: Adressen bei Bedarf richtig konfigurieren, insbesondere bei Aufgabe 5 und 6
@@ -268,6 +269,9 @@ s.settimeout(30) # set time out to 30 seconds
 
 # generic IP object for generating and extracting IP headers
 ipo=IP(my_v_ip,dst_v_ip)
+
+tcpo=TCP(0,0)
+tcpo.pack()
 
 # thread for the client
 t_file=Thread(target=my_file_server)
